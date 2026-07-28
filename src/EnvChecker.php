@@ -39,6 +39,31 @@ final class EnvChecker
     }
 
     /**
+     * Дописує відсутні ключі в кінець .env як `KEY=` (порожнє значення —
+     * значення все одно ніхто, крім людини, вгадати не може). Існуючий
+     * вміст файлу не чіпає: лише додає рядки в кінець.
+     *
+     * @param string[] $missingKeys
+     */
+    public function appendMissing(string $envPath, array $missingKeys): void
+    {
+        if ($missingKeys === []) {
+            return;
+        }
+
+        $current = is_file($envPath) ? file_get_contents($envPath) : '';
+        $current = $current === false ? '' : $current;
+
+        $needsLeadingNewline = $current !== '' && !str_ends_with($current, "\n");
+        $addition = ($needsLeadingNewline ? "\n" : '') . implode("\n", array_map(
+            static fn (string $key): string => "{$key}=",
+            $missingKeys
+        )) . "\n";
+
+        file_put_contents($envPath, $current . $addition);
+    }
+
+    /**
      * Мінімальний .env-парсер: KEY=value на рядок, підтримує коментарі
      * (#...), порожні рядки, значення в лапках і export-префікс.
      * Не намагається бути повноцінним — цього достатньо для перевірки

@@ -44,7 +44,12 @@ composer global require faneraiy14/envcheck
 ```bash
 php bin/envcheck                        # .env і .env.example у поточній папці
 php bin/envcheck .env.production .env.example
+php bin/envcheck --fix                  # дописати відсутні ключі в .env порожніми
 ```
+
+`--fix` тільки додає відсутні ключі в кінець файлу як `KEY=` — існуючий
+вміст не чіпає й нічого не видаляє. Значення все одно треба заповнити
+вручну: інструмент не вгадує паролі й токени.
 
 Приклад виводу:
 

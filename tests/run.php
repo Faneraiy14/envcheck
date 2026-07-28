@@ -72,6 +72,27 @@ check('немає відсутніх/порожніх', $result['missing'] === [
 unlink($env);
 unlink($example);
 
+// --- Тест 4б: appendMissing() дописує без псування наявного вмісту ---
+echo "4б. appendMissing() дописує відсутні ключі в кінець файлу\n";
+$env = tempEnvFile("APP_NAME=Test\n# коментар лишається на місці\n");
+$checker->appendMissing($env, ['DB_HOST', 'DB_PORT']);
+$afterFix = file_get_contents($env);
+check('APP_NAME не зачеплено', str_contains($afterFix, 'APP_NAME=Test'));
+check('коментар не зачеплено', str_contains($afterFix, '# коментар лишається на місці'));
+check('DB_HOST дописано порожнім', str_contains($afterFix, 'DB_HOST=' . "\n") || str_ends_with(trim($afterFix), 'DB_PORT='));
+$parsedAfterFix = $checker->parse($env);
+check('DB_HOST тепер читається парсером', array_key_exists('DB_HOST', $parsedAfterFix));
+check('DB_PORT тепер читається парсером', array_key_exists('DB_PORT', $parsedAfterFix));
+check('appendMissing з порожнім списком нічого не робить', (function () use ($checker): bool {
+    $f = tempEnvFile("X=1\n");
+    $before = file_get_contents($f);
+    $checker->appendMissing($f, []);
+    $after = file_get_contents($f);
+    unlink($f);
+    return $before === $after;
+})());
+unlink($env);
+
 // --- Тест 5: коментарі, порожні рядки, export, лапки ---
 echo "5. Парсер: коментарі, export, лапки, порожні рядки\n";
 $env = tempEnvFile(
