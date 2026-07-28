@@ -1,0 +1,22 @@
+{
+    "name": "faneraiy14/envcheck",
+    "description": "CLI-утиліта, що звіряє .env із .env.example: відсутні ключі, порожні обов'язкові значення, зайві ключі.",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Faneraiy14"
+        }
+    ],
+    "require": {
+        "php": ">=8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "EnvCheck\\": "src/"
+        }
+    },
+    "bin": [
+        "bin/envcheck"
+    ]
+}

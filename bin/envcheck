@@ -1,0 +1,80 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+require __DIR__ . '/../src/EnvChecker.php';
+
+use EnvCheck\EnvChecker;
+
+function colorize(string $text, string $color): string
+{
+    $codes = ['red' => '31', 'green' => '32', 'yellow' => '33', 'cyan' => '36', 'gray' => '90'];
+    // Windows-термінали без ANSI (старий cmd.exe) просто покажуть коди
+    // текстом — не критично для CLI-інструменту, тому не ускладнюємо
+    // детекцією підтримки кольору.
+    if (!isset($codes[$color])) {
+        return $text;
+    }
+    return "\033[{$codes[$color]}m{$text}\033[0m";
+}
+
+function printUsage(): void
+{
+    echo "envcheck — звіряє .env із .env.example\n\n";
+    echo "Використання:\n";
+    echo "  envcheck [шлях-до-.env] [шлях-до-.env.example]\n\n";
+    echo "За замовчуванням: .env і .env.example у поточній папці.\n";
+}
+
+$args = array_slice($argv, 1);
+
+if (in_array('--help', $args, true) || in_array('-h', $args, true)) {
+    printUsage();
+    exit(0);
+}
+
+$envPath = $args[0] ?? '.env';
+$examplePath = $args[1] ?? '.env.example';
+
+$checker = new EnvChecker();
+
+try {
+    $result = $checker->check($envPath, $examplePath);
+} catch (\RuntimeException $e) {
+    fwrite(STDERR, colorize('Помилка: ', 'red') . $e->getMessage() . "\n");
+    exit(2);
+}
+
+$hasProblems = $result['missing'] !== [] || $result['empty'] !== [];
+
+if ($result['missing'] === [] && $result['extra'] === [] && $result['empty'] === []) {
+    echo colorize('✓ ', 'green') . "{$envPath} відповідає {$examplePath}\n";
+    exit(0);
+}
+
+if ($result['missing'] !== []) {
+    echo colorize('✗ Відсутні ключі', 'red') . " (є в {$examplePath}, немає в {$envPath}):\n";
+    foreach ($result['missing'] as $key) {
+        echo "    {$key}\n";
+    }
+}
+
+if ($result['empty'] !== []) {
+    echo colorize('⚠ Порожні значення', 'yellow') . " (ключ є, значення не заповнене):\n";
+    foreach ($result['empty'] as $key) {
+        echo "    {$key}\n";
+    }
+}
+
+if ($result['extra'] !== []) {
+    echo colorize('ℹ Зайві ключі', 'cyan') . " (є в {$envPath}, немає в {$examplePath} — не помилка, просто інфо):\n";
+    foreach ($result['extra'] as $key) {
+        echo "    {$key}\n";
+    }
+}
+
+// Зайві ключі не провалюють перевірку — це нормально мати локальні
+// налаштування поза шаблоном. Провал — тільки за відсутніх або
+// порожніх ОБОВ'ЯЗКОВИХ (перелічених у .env.example) значень.
+exit($hasProblems ? 1 : 0);
