@@ -45,11 +45,27 @@ composer global require faneraiy14/envcheck
 php bin/envcheck                        # .env і .env.example у поточній папці
 php bin/envcheck .env.production .env.example
 php bin/envcheck --fix                  # дописати відсутні ключі в .env порожніми
+php bin/envcheck --strict               # зайві ключі теж провалюють перевірку
+php bin/envcheck --json                 # машинозчитуваний вивід для CI/скриптів
 ```
 
 `--fix` тільки додає відсутні ключі в кінець файлу як `KEY=` — існуючий
 вміст не чіпає й нічого не видаляє. Значення все одно треба заповнити
 вручну: інструмент не вгадує паролі й токени.
+
+`--json` виводить структурований результат замість кольорового тексту:
+
+```json
+{
+    "ok": false,
+    "envPath": ".env",
+    "examplePath": ".env.example",
+    "missing": ["DB_PASSWORD"],
+    "empty": ["API_KEY"],
+    "extra": ["DEBUG_TOOLBAR"],
+    "fixed": false
+}
+```
 
 Приклад виводу:
 
@@ -66,8 +82,12 @@ php bin/envcheck --fix                  # дописати відсутні кл
 ## У CI
 
 ```yaml
-- run: php bin/envcheck .env.ci .env.example || exit 1
+- run: php bin/envcheck .env.ci .env.example --strict || exit 1
 ```
+
+`--strict` тут доречний: у CI зайвий забутий ключ у прикладі варто
+теж ловити, на відміну від локальної розробки, де в когось можуть
+бути свої додаткові налаштування в `.env`.
 
 Провалиться збірка, якщо забули додати нову змінну в приклад
 для CI-середовища.

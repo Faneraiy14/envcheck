@@ -23,12 +23,18 @@ function printUsage(): void
 {
     echo "envcheck — звіряє .env із .env.example\n\n";
     echo "Використання:\n";
-    echo "  envcheck [шлях-до-.env] [шлях-до-.env.example] [--fix]\n\n";
+    echo "  envcheck [шлях-до-.env] [шлях-до-.env.example] [опції]\n\n";
     echo "За замовчуванням: .env і .env.example у поточній папці.\n\n";
-    echo "  --fix   дописати відсутні ключі в .env як 'KEY=' (порожнє\n";
-    echo "          значення — заповнити треба вручну; наявні рядки не чіпає)\n";
+    echo "Опції:\n";
+    echo "  --fix     дописати відсутні ключі в .env як 'KEY=' (порожнє\n";
+    echo "            значення — заповнити треба вручну; наявні рядки не чіпає)\n";
+    echo "  --strict  провалити перевірку (exit 1) і за зайвих ключів теж,\n";
+    echo "            не тільки за відсутніх/порожніх\n";
+    echo "  --json    вивід як JSON замість тексту з кольорами — для CI\n";
+    echo "            та інших скриптів, а не для читання людиною\n";
 }
 
+$flags = ['--fix', '--strict', '--json'];
 $args = array_slice($argv, 1);
 
 if (in_array('--help', $args, true) || in_array('-h', $args, true)) {
@@ -37,7 +43,9 @@ if (in_array('--help', $args, true) || in_array('-h', $args, true)) {
 }
 
 $fix = in_array('--fix', $args, true);
-$positional = array_values(array_filter($args, static fn (string $a): bool => $a !== '--fix'));
+$strict = in_array('--strict', $args, true);
+$json = in_array('--json', $args, true);
+$positional = array_values(array_filter($args, static fn (string $a): bool => !in_array($a, $flags, true)));
 
 $envPath = $positional[0] ?? '.env';
 $examplePath = $positional[1] ?? '.env.example';
@@ -47,11 +55,32 @@ $checker = new EnvChecker();
 try {
     $result = $checker->check($envPath, $examplePath);
 } catch (\RuntimeException $e) {
-    fwrite(STDERR, colorize('Помилка: ', 'red') . $e->getMessage() . "\n");
+    if ($json) {
+        echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE) . "\n";
+    } else {
+        fwrite(STDERR, colorize('Помилка: ', 'red') . $e->getMessage() . "\n");
+    }
     exit(2);
 }
 
-$hasProblems = $result['missing'] !== [] || $result['empty'] !== [];
+if ($fix && $result['missing'] !== []) {
+    $checker->appendMissing($envPath, $result['missing']);
+}
+
+$hasProblems = $result['missing'] !== [] || $result['empty'] !== [] || ($strict && $result['extra'] !== []);
+
+if ($json) {
+    echo json_encode([
+        'ok' => !$hasProblems,
+        'envPath' => $envPath,
+        'examplePath' => $examplePath,
+        'missing' => $result['missing'],
+        'empty' => $result['empty'],
+        'extra' => $result['extra'],
+        'fixed' => $fix && $result['missing'] !== [],
+    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n";
+    exit($hasProblems ? 1 : 0);
+}
 
 if ($result['missing'] === [] && $result['extra'] === [] && $result['empty'] === []) {
     echo colorize('✓ ', 'green') . "{$envPath} відповідає {$examplePath}\n";
@@ -65,7 +94,6 @@ if ($result['missing'] !== []) {
     }
 
     if ($fix) {
-        $checker->appendMissing($envPath, $result['missing']);
         echo colorize('  → дописано в ' . $envPath . ' як порожні (заповни значення вручну)', 'gray') . "\n";
     }
 }
@@ -78,13 +106,12 @@ if ($result['empty'] !== []) {
 }
 
 if ($result['extra'] !== []) {
-    echo colorize('ℹ Зайві ключі', 'cyan') . " (є в {$envPath}, немає в {$examplePath} — не помилка, просто інфо):\n";
+    $label = $strict ? '✗ Зайві ключі' : 'ℹ Зайві ключі';
+    $note = $strict ? ' (--strict: це теж провалює перевірку)' : ' (не помилка, просто інфо)';
+    echo colorize($label, $strict ? 'red' : 'cyan') . " (є в {$envPath}, немає в {$examplePath}){$note}:\n";
     foreach ($result['extra'] as $key) {
         echo "    {$key}\n";
     }
 }
 
-// Зайві ключі не провалюють перевірку — це нормально мати локальні
-// налаштування поза шаблоном. Провал — тільки за відсутніх або
-// порожніх ОБОВ'ЯЗКОВИХ (перелічених у .env.example) значень.
 exit($hasProblems ? 1 : 0);
