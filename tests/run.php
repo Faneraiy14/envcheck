@@ -115,6 +115,55 @@ try {
 }
 check('кинуто RuntimeException', $threw);
 
+// --- Тест 7: CLI (bin/envcheck) як окремий процес — --json/--strict/--fix ---
+echo "7. CLI: --json/--strict/--fix через реальний виклик процесу\n";
+
+function runCli(array $args): array
+{
+    // shell_exec() + "echo $?" залежить від POSIX-шелу — на Windows
+    // shell_exec йде через cmd.exe, де $? не існує. proc_open дає
+    // реальний exit-код крос-платформно через proc_close().
+    $command = array_merge([PHP_BINARY, __DIR__ . '/../bin/envcheck'], $args);
+    $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    $stdout = stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $exitCode = proc_close($process);
+    return [$exitCode, trim((string) $stdout)];
+}
+
+$env = tempEnvFile("APP_NAME=Test\nDB_HOST=localhost\n");
+$example = tempEnvFile("APP_NAME=\nDB_HOST=\nDB_PORT=\n");
+
+[$exitCode, $stdout] = runCli([$env, $example, '--json']);
+$decoded = json_decode($stdout, true);
+check('--json: валідний JSON', $decoded !== null);
+check('--json: ok=false, коли є відсутні', $decoded !== null && $decoded['ok'] === false);
+check('--json: DB_PORT у missing', $decoded !== null && in_array('DB_PORT', $decoded['missing'], true));
+check('--json: exit-код 1 за наявності проблем', $exitCode === 1);
+
+[$exitCode2] = runCli([$env, $example]);
+check('без --strict: зайвих ключів тут немає, exit не залежить від --strict у цьому кейсі', $exitCode2 === 1);
+
+$envWithExtra = tempEnvFile("APP_NAME=Test\nDB_HOST=localhost\nDB_PORT=5432\nEXTRA_KEY=1\n");
+$exampleNoExtra = tempEnvFile("APP_NAME=\nDB_HOST=\nDB_PORT=\n");
+[$exitCodeNoStrict] = runCli([$envWithExtra, $exampleNoExtra]);
+check('без --strict: тільки зайвий ключ НЕ провалює перевірку', $exitCodeNoStrict === 0);
+[$exitCodeStrict] = runCli([$envWithExtra, $exampleNoExtra, '--strict']);
+check('--strict: той самий зайвий ключ ПРОВАЛює перевірку', $exitCodeStrict === 1);
+unlink($envWithExtra);
+unlink($exampleNoExtra);
+
+$envForFix = tempEnvFile("APP_NAME=Test\n");
+runCli([$envForFix, $example, '--fix']);
+$afterFixParsed = $checker->parse($envForFix);
+check('--fix через CLI: DB_HOST дописано', array_key_exists('DB_HOST', $afterFixParsed));
+check('--fix через CLI: DB_PORT дописано', array_key_exists('DB_PORT', $afterFixParsed));
+unlink($envForFix);
+
+unlink($env);
+unlink($example);
+
 echo "\n======================================\n";
 echo "Успішно: {$passed} | Провалено: {$failures}\n";
 
