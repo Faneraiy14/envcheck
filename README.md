@@ -81,6 +81,24 @@ php bin/envcheck --json                 # машинозчитуваний ви�
 
 ## У CI
 
+Готовий GitHub Action — підключи в будь-якому репозиторії без composer
+install, PHP ставиться автоматично:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: Faneraiy14/envcheck@main
+  with:
+    env-path: .env.ci        # необов'язково, за замовчуванням .env
+    example-path: .env.example
+    strict: 'true'
+```
+
+Крок падає, якщо є відсутні/порожні (і, зі `strict: true`, зайві) ключі
+— блокує merge через required status check у налаштуваннях гілки
+GitHub.
+
+Або вручну, без composite action:
+
 ```yaml
 - run: php bin/envcheck .env.ci .env.example --strict || exit 1
 ```
