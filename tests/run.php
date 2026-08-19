@@ -105,6 +105,16 @@ check('DB_PORT як рядок', $parsed['DB_PORT'] === '5432');
 check('рівно 3 ключі (коментар і порожній рядок пропущені)', count($parsed) === 3);
 unlink($env);
 
+// --- Тест 5б: UTF-8 BOM на початку файлу не губить перший ключ ---
+echo "5б. UTF-8 BOM на початку .env не ламає перший ключ\n";
+$env = tempEnvFile("\xEF\xBB\xBFAPP_NAME=Test\nAPI_KEY=secret\n");
+$example = tempEnvFile("APP_NAME=\nAPI_KEY=\n");
+$result = $checker->check($env, $example);
+check('APP_NAME (перший рядок після BOM) НЕ вважається відсутнім', !in_array('APP_NAME', $result['missing'], true));
+check('немає хибних відсутніх/порожніх ключів', $result['missing'] === [] && $result['empty'] === []);
+unlink($env);
+unlink($example);
+
 // --- Тест 6: неіснуючий файл кидає виняток ---
 echo "6. Неіснуючий файл — RuntimeException, не тихий збій\n";
 $threw = false;

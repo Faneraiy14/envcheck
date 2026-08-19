@@ -80,6 +80,14 @@ final class EnvChecker
         $result = [];
         $lines = file($path, FILE_IGNORE_NEW_LINES) ?: [];
 
+        // Файли, збережені деякими Windows-редакторами (напр. Notepad),
+        // починаються з UTF-8 BOM (\xEF\xBB\xBF). Без цього перший рядок
+        // мав би вигляд "\xEF\xBB\xBFKEY=value" - ключ не проходив би
+        // regex нижче й мовчки губився, показуючись як хибно "відсутній".
+        if (isset($lines[0])) {
+            $lines[0] = preg_replace('/^\xEF\xBB\xBF/', '', $lines[0]);
+        }
+
         foreach ($lines as $line) {
             $trimmed = trim($line);
             if ($trimmed === '' || str_starts_with($trimmed, '#')) {
