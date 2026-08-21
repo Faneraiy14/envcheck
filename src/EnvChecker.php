@@ -108,7 +108,7 @@ final class EnvChecker
             }
 
             $value = trim(substr($trimmed, $eqPos + 1));
-            $value = $this->stripQuotes($value);
+            $value = $this->extractValue($value);
 
             $result[$key] = $value;
         }
@@ -116,16 +116,35 @@ final class EnvChecker
         return $result;
     }
 
-    private function stripQuotes(string $value): string
+    // Раніше просто trim()-ив усе після "=" - "API_KEY= # TODO: встав
+    // ключ" (типовий реальний патерн: порожнє значення з поясненням у
+    // коментарі поруч) розбирався як значення "# TODO: встав ключ", а не
+    // порожній рядок. check() тоді НЕ позначав такий ключ як "empty" -
+    // саме та ситуація, яку весь інструмент і покликаний ловити.
+    //
+    // У лапках "#" - звичайний символ значення (не коментар), тому
+    // спершу перевіряємо лапки, і лише для НЕзакавиченого значення
+    // шукаємо "#" як початок коментаря.
+    private function extractValue(string $raw): string
     {
-        $len = strlen($value);
-        if ($len >= 2) {
-            $first = $value[0];
-            $last = $value[$len - 1];
-            if (($first === '"' && $last === '"') || ($first === "'" && $last === "'")) {
-                return substr($value, 1, -1);
-            }
+        if ($raw === '') {
+            return '';
         }
-        return $value;
+
+        $quoteChar = $raw[0];
+        if ($quoteChar === '"' || $quoteChar === "'") {
+            $closingPos = strpos($raw, $quoteChar, 1);
+            if ($closingPos !== false) {
+                return substr($raw, 1, $closingPos - 1);
+            }
+            // Незакрита лапка - навмисно не вгадуємо намір, лишаємо як є.
+            return $raw;
+        }
+
+        $hashPos = strpos($raw, '#');
+        if ($hashPos !== false) {
+            $raw = substr($raw, 0, $hashPos);
+        }
+        return trim($raw);
     }
 }

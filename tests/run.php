@@ -174,6 +174,23 @@ unlink($envForFix);
 unlink($env);
 unlink($example);
 
+// --- Тест: інлайн-коментар після значення - реальний патерн "порожнє
+// значення з поясненням", раніше сам коментар парсився ЯК значення, і
+// ключ помилково не вважався "empty" ---
+echo "8. Інлайн-коментар (\"KEY= # ...\") не ламає визначення empty/непорожнє\n";
+$exampleForComments = tempEnvFile("API_KEY=\nDB_HOST=\n");
+$envWithComments = tempEnvFile("API_KEY= # TODO: встав свій ключ сюди\nDB_HOST=localhost # так, тут не порожньо\n");
+$commentResult = $checker->check($envWithComments, $exampleForComments);
+check('API_KEY (лише коментар) визначено як empty', in_array('API_KEY', $commentResult['empty'], true));
+check('DB_HOST (значення + коментар) НЕ вважається empty', !in_array('DB_HOST', $commentResult['empty'], true));
+unlink($exampleForComments);
+unlink($envWithComments);
+
+$envQuotedHash = tempEnvFile('QUOTED="значення з # усередині лапок"' . "\n");
+$parsedQuoted = $checker->parse($envQuotedHash);
+check('"#" усередині лапок НЕ обрізає значення', $parsedQuoted['QUOTED'] === 'значення з # усередині лапок');
+unlink($envQuotedHash);
+
 echo "\n======================================\n";
 echo "Успішно: {$passed} | Провалено: {$failures}\n";
 
