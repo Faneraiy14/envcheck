@@ -1,31 +1,34 @@
 # envcheck
 
-Маленька CLI-утиліта на PHP: звіряє `.env` із `.env.example` і каже, чого
-не вистачає, ще до того, як застосунок впаде з незрозумілою помилкою
-через відсутню змінну оточення.
+*[Українською](README.uk.md)*
 
-## Навіщо
+A small PHP CLI tool: it diffs `.env` against `.env.example` and tells
+you what's missing, before the app crashes with a confusing error
+about a missing environment variable.
 
-Класична ситуація: хтось додав нову обов'язкову змінну в
-`.env.example`, а ти про це не знав — і застосунок падає в рантаймі
-з малозрозумілою помилкою десь у середині коду. `envcheck` ловить це
-одразу, з чітким списком, до запуску.
+## Why
 
-## Що перевіряє
+The classic situation: someone added a new required variable to
+`.env.example`, and you didn't know about it — the app crashes at
+runtime with a barely-informative error somewhere deep in the code.
+`envcheck` catches this right away, with a clear list, before you
+even run it.
 
-- **Відсутні ключі** — є в `.env.example`, немає в `.env`.
-- **Порожні значення** — ключ є в обох файлах, але в `.env` він
-  порожній (`API_KEY=` без значення).
-- **Зайві ключі** — є в `.env`, немає в `.env.example`. Це не
-  помилка (локальні налаштування — нормально), просто інформація.
+## What it checks
 
-Exit-код: `0` — усе гаразд, `1` — знайдено відсутні або порожні
-обов'язкові ключі (зручно для CI), `2` — файл не знайдено.
+- **Missing keys** — present in `.env.example`, absent from `.env`.
+- **Empty values** — the key exists in both files, but is empty in
+  `.env` (`API_KEY=` with no value).
+- **Extra keys** — present in `.env`, absent from `.env.example`.
+  Not an error (local settings are fine), just informational.
 
-## Встановлення
+Exit code: `0` — all good, `1` — missing or empty required keys found
+(handy for CI), `2` — file not found.
 
-Потрібен PHP 8.1+. Без залежностей — жодного `composer install`
-не треба для самого запуску.
+## Install
+
+Requires PHP 8.1+. No dependencies — no `composer install` needed
+just to run it.
 
 ```bash
 git clone https://github.com/Faneraiy14/envcheck.git
@@ -33,27 +36,27 @@ cd envcheck
 php bin/envcheck --help
 ```
 
-Або через Composer, якщо хочеш команду `envcheck` глобально:
+Or via Composer, if you want the `envcheck` command globally:
 
 ```bash
 composer global require faneraiy14/envcheck
 ```
 
-## Використання
+## Usage
 
 ```bash
-php bin/envcheck                        # .env і .env.example у поточній папці
+php bin/envcheck                        # .env and .env.example in the current folder
 php bin/envcheck .env.production .env.example
-php bin/envcheck --fix                  # дописати відсутні ключі в .env порожніми
-php bin/envcheck --strict               # зайві ключі теж провалюють перевірку
-php bin/envcheck --json                 # машинозчитуваний вивід для CI/скриптів
+php bin/envcheck --fix                  # append missing keys to .env as empty
+php bin/envcheck --strict               # extra keys also fail the check
+php bin/envcheck --json                 # machine-readable output for CI/scripts
 ```
 
-`--fix` тільки додає відсутні ключі в кінець файлу як `KEY=` — існуючий
-вміст не чіпає й нічого не видаляє. Значення все одно треба заповнити
-вручну: інструмент не вгадує паролі й токени.
+`--fix` only appends missing keys to the end of the file as `KEY=` —
+it never touches or removes existing content. You still have to fill
+in the values by hand: the tool doesn't guess passwords or tokens.
 
-`--json` виводить структурований результат замість кольорового тексту:
+`--json` prints a structured result instead of colored text:
 
 ```json
 {
@@ -67,71 +70,71 @@ php bin/envcheck --json                 # машинозчитуваний ви�
 }
 ```
 
-Приклад виводу:
+Sample output:
 
 ```
-✗ Відсутні ключі (є в .env.example, немає в .env):
+✗ Missing keys (present in .env.example, absent from .env):
     DB_PASSWORD
     DB_USER
-⚠ Порожні значення (ключ є, значення не заповнене):
+⚠ Empty values (key exists, value not filled in):
     API_KEY
-ℹ Зайві ключі (є в .env, немає в .env.example — не помилка, просто інфо):
+ℹ Extra keys (present in .env, absent from .env.example — not an error, just info):
     DEBUG_TOOLBAR
 ```
 
-## У CI
+## In CI
 
-Готовий GitHub Action — підключи в будь-якому репозиторії без composer
-install, PHP ставиться автоматично:
+A ready-made GitHub Action — drop it into any repo without a
+composer install, PHP is set up automatically:
 
 ```yaml
 - uses: actions/checkout@v4
 - uses: Faneraiy14/envcheck@main
   with:
-    env-path: .env.ci        # необов'язково, за замовчуванням .env
+    env-path: .env.ci        # optional, defaults to .env
     example-path: .env.example
     strict: 'true'
 ```
 
-Крок падає, якщо є відсутні/порожні (і, зі `strict: true`, зайві) ключі
-— блокує merge через required status check у налаштуваннях гілки
-GitHub.
+The step fails if there are missing/empty (and, with `strict: true`,
+extra) keys — blocks the merge via a required status check in the
+GitHub branch settings.
 
-Або вручну, без composite action:
+Or manually, without the composite action:
 
 ```yaml
 - run: php bin/envcheck .env.ci .env.example --strict || exit 1
 ```
 
-`--strict` тут доречний: у CI зайвий забутий ключ у прикладі варто
-теж ловити, на відміну від локальної розробки, де в когось можуть
-бути свої додаткові налаштування в `.env`.
+`--strict` makes sense here: in CI, a forgotten extra key in the
+example is worth catching too, unlike local development, where
+someone might have their own extra settings in `.env`.
 
-Провалиться збірка, якщо забули додати нову змінну в приклад
-для CI-середовища.
+The build fails if you forgot to add a new variable to the example
+for the CI environment.
 
-## Парсер .env
+## The .env parser
 
-Мінімальний, навмисно: `KEY=value` на рядок, коментарі (`#...`),
-порожні рядки, `export KEY=value`, значення в одинарних/подвійних
-лапках. Це НЕ повноцінний завантажувач середовища (як vlucas/phpdotenv)
-— тільки читання набору ключів для звірки. Для реального завантаження
-`.env` у застосунок використовуй окрему бібліотеку.
+Deliberately minimal: `KEY=value` per line, comments (`#...`), blank
+lines, `export KEY=value`, single/double-quoted values. This is NOT a
+full environment loader (like vlucas/phpdotenv) — it only reads the
+set of keys for comparison. To actually load `.env` into your app,
+use a dedicated library.
 
-## Тести
+## Tests
 
-Без PHPUnit — простий скрипт з ручними перевірками, той самий підхід,
-що й у моїх інших проєктах:
+No PHPUnit — a plain script with manual checks, the same approach as
+my other projects:
 
 ```bash
 php tests/run.php
 ```
 
-35 перевірок: повна відповідність .env/.env.example, відсутні/порожні/зайві
-ключі, `--fix`/`--strict`/`--json` через реальний виклик процесу, парсер
-(коментарі, `export`, лапки, UTF-8 BOM на початку файлу), помилка на
-неіснуючому шляху.
+35 checks: full .env/.env.example match, missing/empty/extra keys,
+`--fix`/`--strict`/`--json` via a real process call, the parser
+(comments, `export`, quotes, UTF-8 BOM at the start of the file), and
+an error on a nonexistent path.
 
-## Ліцензія
+## License
 
-MIT — див. [LICENSE](LICENSE). Автор — Faneraiy14.
+MIT — see [LICENSE](LICENSE). Author: Faneraiy14.
