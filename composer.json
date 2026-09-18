@@ -18,5 +18,8 @@
     },
     "bin": [
         "bin/envcheck"
-    ]
+    ],
+    "require-dev": {
+        "phpstan/phpstan": "^2.2"
+    }
 }

@@ -85,7 +85,11 @@ final class EnvChecker
         // мав би вигляд "\xEF\xBB\xBFKEY=value" - ключ не проходив би
         // regex нижче й мовчки губився, показуючись як хибно "відсутній".
         if (isset($lines[0])) {
-            $lines[0] = preg_replace('/^\xEF\xBB\xBF/', '', $lines[0]);
+            // preg_replace() повертає null лише при реальній помилці PCRE
+            // (напр. вичерпаний backtrack-ліміт) - для такого простого
+            // патерну малоймовірно, але фолбек на вихідний рядок чесніший,
+            // ніж мовчки пропустити перевірку BOM на цьому рядку.
+            $lines[0] = preg_replace('/^\xEF\xBB\xBF/', '', $lines[0]) ?? $lines[0];
         }
 
         foreach ($lines as $line) {
