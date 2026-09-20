@@ -123,17 +123,15 @@ use a dedicated library.
 
 ## Tests
 
-No PHPUnit — a plain script with manual checks, the same approach as
-my other projects:
-
 ```bash
-php tests/run.php
+composer test
 ```
 
-35 checks: full .env/.env.example match, missing/empty/extra keys,
-`--fix`/`--strict`/`--json` via a real process call, the parser
-(comments, `export`, quotes, UTF-8 BOM at the start of the file), and
-an error on a nonexistent path.
+PHPUnit, 14 tests: full .env/.env.example match, missing/empty/extra
+keys, `--fix`/`--strict`/`--json` via a real process call
+(`tests/CliTest.php`), the parser (comments, `export`, quotes, UTF-8
+BOM at the start of the file), and an error on a nonexistent path
+(`tests/EnvCheckerTest.php`).
 
 ## License
 
